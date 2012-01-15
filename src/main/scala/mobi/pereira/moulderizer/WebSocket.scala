@@ -8,9 +8,7 @@ import unfiltered.response._
 import org.clapper.avsl.Logger
 import moulder.Moulds._
 import moulder.Values._
-import org.jsoup.Jsoup
-import org.jsoup.nodes.Document
-import moulder.{Value, MoulderShop}
+import moulder.MoulderShop
 import java.io._
 
 /**
@@ -30,25 +28,18 @@ class WebSocket extends unfiltered.filter.Plan {
 
   def renderTemplate(template: InputStream): ResponseWriter = {
     try {
-      val document: Document = Jsoup.parse(template, "utf-8", "")
       val s = MoulderShop()
 
       s.register("title", text("Lucien's web page"))
       s.register("h5#entriesTitle", text("Entrées"))
-
-      val entriesList = sub()
-      entriesList.register("a",
-        attr(Value("href"), transform[Entry, String](elemData(), "/blog/" + _.id.toString))
-          :: text(transform[Entry, String](elemData(), _.title))
-          :: Nil)
       s.register("#entries li",
-        repeat(Value(EntryDAO.entries.toList))
-          :: entriesList
-          :: Nil)
+        repeat(EntryDAO.entries.toList, (item: Entry, index: Int) => {
+          sub().register("a",
+            attr("href", "/blog/" + item.id.toString) :: text(item.title) :: Nil) :: Nil
+        }) :: Nil)
 
-      val response = ResponseString(s.process(document).head._1.toString)
-      template.close()
-      response
+      val doc = s.process(template)
+      ResponseString(doc.html())
     } catch {
       case a => {
         logger.error("error : ", a)
@@ -56,4 +47,5 @@ class WebSocket extends unfiltered.filter.Plan {
       }
     }
   }
+
 }
